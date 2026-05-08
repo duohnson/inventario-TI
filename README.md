@@ -67,3 +67,9 @@ Si deseas ejecutar el proyecto desde el codigo fuente o realizar modificaciones:
 Este proyecto se distribuye bajo la licencia MIT. Consulta el archivo LICENSE para mas detalles.
 
 ---
+
+## Ultima actualización
+
+Actualmente se esta trabajando en la beta v1.1, la cual trae el Directorio de IPS.
+
+---
