@@ -32,6 +32,15 @@ class Database:
                 notas TEXT
             )
         ''')
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS direcciones_ip (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip TEXT UNIQUE NOT NULL,
+                nombre_dispositivo TEXT,
+                descripcion TEXT,
+                estado TEXT DEFAULT 'Ocupada'
+            )
+        ''')
         self.conexion.commit()
 
     def get_equipos(self, search_query="", category_filter="Todos", status_filter="Todos"):
@@ -118,3 +127,49 @@ class Database:
     def get_ultimos_equipos(self, limite=5):
         self.cursor.execute("SELECT codigo, nombre, categoria, estado FROM equipos ORDER BY id DESC LIMIT ?", (limite,))
         return self.cursor.fetchall()
+
+    # --- Métodos para Directorio de IP ---
+    def get_ips(self, search_query=""):
+        query = "SELECT * FROM direcciones_ip WHERE 1=1"
+        params = []
+        if search_query:
+            query += " AND (ip LIKE ? OR nombre_dispositivo LIKE ? OR descripcion LIKE ?)"
+            like_term = f"%{search_query}%"
+            params.extend([like_term, like_term, like_term])
+        
+        self.cursor.execute(query, params)
+        return self.cursor.fetchall()
+
+    def agregar_ip(self, datos):
+        try:
+            self.cursor.execute('''
+                INSERT INTO direcciones_ip (ip, nombre_dispositivo, descripcion, estado)
+                VALUES (?, ?, ?, ?)
+            ''', datos)
+            self.conexion.commit()
+            return True, "IP agregada correctamente."
+        except sqlite3.IntegrityError:
+            return False, "Error: Esa dirección IP ya está registrada."
+        except Exception as e:
+            return False, str(e)
+
+    def actualizar_ip(self, id_ip, datos):
+        try:
+            self.cursor.execute('''
+                UPDATE direcciones_ip SET ip=?, nombre_dispositivo=?, descripcion=?, estado=?
+                WHERE id=?
+            ''', (*datos, id_ip))
+            self.conexion.commit()
+            return True, "Registro de IP actualizado."
+        except sqlite3.IntegrityError:
+            return False, "Error: Esa dirección IP ya está registrada."
+        except Exception as e:
+            return False, str(e)
+
+    def eliminar_ip(self, id_ip):
+        try:
+            self.cursor.execute("DELETE FROM direcciones_ip WHERE id=?", (id_ip,))
+            self.conexion.commit()
+            return True, "IP eliminada correctamente."
+        except Exception as e:
+            return False, str(e)

@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from database import Database
-from ui import DashboardFrame, EquiposFrame
+from ui import DashboardFrame, EquiposFrame, DirectorioIPFrame
 
 class App(ctk.CTk):
     def __init__(self):
@@ -33,6 +33,9 @@ class App(ctk.CTk):
         
         self.btn_equipos = ctk.CTkButton(self.sidebar_frame, text="Gestión de Equipos", command=self.show_equipos)
         self.btn_equipos.grid(row=2, column=0, padx=20, pady=10)
+
+        self.btn_directorio = ctk.CTkButton(self.sidebar_frame, text="Directorio de IP", command=self.show_directorio_ip)
+        self.btn_directorio.grid(row=3, column=0, padx=20, pady=10)
         
         # Selector de Tema
         self.theme_label = ctk.CTkLabel(self.sidebar_frame, text="Tema de Interfaz:", anchor="w")
@@ -43,18 +46,26 @@ class App(ctk.CTk):
         # Instanciar Frames
         self.dashboard_frame = DashboardFrame(self, self.db)
         self.equipos_frame = EquiposFrame(self, self.db, self.actualizar_dashboard)
+        self.directorio_ip_frame = DirectorioIPFrame(self, self.db)
         
         # Vista inicial
         self.show_dashboard()
 
     def show_dashboard(self):
         self.equipos_frame.grid_forget()
+        self.directorio_ip_frame.grid_forget()
         self.dashboard_frame.grid(row=0, column=1, padx=20, pady=20, sticky="nsew")
         self.actualizar_dashboard()
 
     def show_equipos(self):
         self.dashboard_frame.grid_forget()
+        self.directorio_ip_frame.grid_forget()
         self.equipos_frame.grid(row=0, column=1, padx=20, pady=20, sticky="nsew")
+
+    def show_directorio_ip(self):
+        self.dashboard_frame.grid_forget()
+        self.equipos_frame.grid_forget()
+        self.directorio_ip_frame.grid(row=0, column=1, padx=20, pady=20, sticky="nsew")
 
     def actualizar_dashboard(self):
         self.dashboard_frame.actualizar_metricas()

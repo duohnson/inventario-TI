@@ -353,3 +353,163 @@ class EquiposFrame(ctk.CTkFrame):
             messagebox.showinfo("Éxito", "Datos exportados correctamente.")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo exportar: {e}")
+
+class DirectorioIPFrame(ctk.CTkFrame):
+    def __init__(self, master, db):
+        super().__init__(master)
+        self.db = db
+        self.ip_seleccionada_id = None
+        
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+        
+        self._crear_formulario()
+        self._crear_filtros()
+        self._crear_tabla()
+        self.cargar_datos()
+
+    def _crear_formulario(self):
+        form_frame = ctk.CTkFrame(self)
+        form_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        
+        form_frame.grid_columnconfigure((1, 3), weight=1)
+        
+        self.var_ip = ctk.StringVar()
+        self.var_dispositivo = ctk.StringVar()
+        self.var_desc = ctk.StringVar()
+        self.var_estado = ctk.StringVar(value="Ocupada")
+        
+        # Fila 1
+        ctk.CTkLabel(form_frame, text="Dirección IP:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
+        ctk.CTkEntry(form_frame, textvariable=self.var_ip, placeholder_text="192.168.1.1").grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        
+        ctk.CTkLabel(form_frame, text="Dispositivo:").grid(row=0, column=2, padx=5, pady=5, sticky="e")
+        ctk.CTkEntry(form_frame, textvariable=self.var_dispositivo, placeholder_text="Nombre del equipo").grid(row=0, column=3, padx=5, pady=5, sticky="ew")
+        
+        # Fila 2
+        ctk.CTkLabel(form_frame, text="Descripción:").grid(row=1, column=0, padx=5, pady=5, sticky="e")
+        ctk.CTkEntry(form_frame, textvariable=self.var_desc).grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        
+        ctk.CTkLabel(form_frame, text="Estado:").grid(row=1, column=2, padx=5, pady=5, sticky="e")
+        ctk.CTkComboBox(form_frame, values=["Ocupada", "Libre", "Reservada"], variable=self.var_estado).grid(row=1, column=3, padx=5, pady=5, sticky="ew")
+        
+        # Botones
+        btn_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+        btn_frame.grid(row=2, column=0, columnspan=4, pady=10)
+        
+        self.btn_guardar = ctk.CTkButton(btn_frame, text="Registrar IP", command=self._guardar)
+        self.btn_guardar.pack(side="left", padx=10)
+        
+        ctk.CTkButton(btn_frame, text="Limpiar", fg_color="gray", command=self._limpiar).pack(side="left", padx=10)
+        
+        self.btn_eliminar = ctk.CTkButton(btn_frame, text="Eliminar", fg_color="#d32f2f", command=self._eliminar)
+        self.btn_eliminar.pack(side="left", padx=10)
+
+    def _crear_filtros(self):
+        filter_frame = ctk.CTkFrame(self, fg_color="transparent")
+        filter_frame.grid(row=1, column=0, padx=10, pady=(0,10), sticky="ew")
+        
+        self.var_search = ctk.StringVar()
+        self.var_search.trace_add("write", lambda *args: self.cargar_datos())
+        
+        ctk.CTkLabel(filter_frame, text="Buscar IP/Equipo:").pack(side="left", padx=5)
+        ctk.CTkEntry(filter_frame, textvariable=self.var_search, width=250).pack(side="left", padx=5)
+
+    def _crear_tabla(self):
+        frame_tabla = ctk.CTkFrame(self)
+        frame_tabla.grid(row=2, column=0, padx=10, pady=(0, 10), sticky="nsew")
+        
+        # Estilo
+        bg_color = "#ffffff" if ctk.get_appearance_mode() == "Light" else "#2b2b2b"
+        fg_color = "#000000" if ctk.get_appearance_mode() == "Light" else "#ffffff"
+        field_bg = "#ffffff" if ctk.get_appearance_mode() == "Light" else "#333333"
+        header_bg = "#e0e0e0" if ctk.get_appearance_mode() == "Light" else "#1f1f1f"
+        
+        style = ttk.Style()
+        style.configure("IP.Treeview", background=bg_color, foreground=fg_color, rowheight=25, fieldbackground=field_bg, borderwidth=0)
+        style.configure("IP.Treeview.Heading", font=('Arial', 10, 'bold'), background=header_bg, foreground=fg_color)
+        
+        cols = ("id", "ip", "dispositivo", "descripcion", "estado")
+        self.tabla = ttk.Treeview(frame_tabla, columns=cols, show="headings", style="IP.Treeview")
+        
+        self.tabla.heading("id", text="ID")
+        self.tabla.heading("ip", text="Dirección IP")
+        self.tabla.heading("dispositivo", text="Dispositivo")
+        self.tabla.heading("descripcion", text="Descripción")
+        self.tabla.heading("estado", text="Estado")
+        
+        self.tabla.column("id", width=40, anchor="center")
+        self.tabla.column("ip", width=120)
+        self.tabla.column("dispositivo", width=150)
+        self.tabla.column("descripcion", width=200)
+        self.tabla.column("estado", width=100, anchor="center")
+        
+        scrollbar = ttk.Scrollbar(frame_tabla, orient="vertical", command=self.tabla.yview)
+        self.tabla.configure(yscroll=scrollbar.set)
+        
+        self.tabla.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        self.tabla.bind("<Double-1>", self._seleccionar_registro)
+
+    def cargar_datos(self):
+        for item in self.tabla.get_children():
+            self.tabla.delete(item)
+        
+        datos = self.db.get_ips(self.var_search.get())
+        for d in datos:
+            self.tabla.insert("", "end", values=d)
+
+    def _guardar(self):
+        ip = self.var_ip.get().strip()
+        if not ip:
+            messagebox.showwarning("Aviso", "La dirección IP es obligatoria.")
+            return
+            
+        datos = (ip, self.var_dispositivo.get(), self.var_desc.get(), self.var_estado.get())
+        
+        if self.ip_seleccionada_id:
+            exito, msj = self.db.actualizar_ip(self.ip_seleccionada_id, datos)
+        else:
+            exito, msj = self.db.agregar_ip(datos)
+            
+        if exito:
+            messagebox.showinfo("Éxito", msj)
+            self._limpiar()
+            self.cargar_datos()
+        else:
+            messagebox.showerror("Error", msj)
+
+    def _seleccionar_registro(self, event):
+        sel = self.tabla.selection()
+        if not sel: return
+        
+        vals = self.tabla.item(sel[0], "values")
+        self.ip_seleccionada_id = vals[0]
+        self.var_ip.set(vals[1])
+        self.var_dispositivo.set(vals[2])
+        self.var_desc.set(vals[3])
+        self.var_estado.set(vals[4])
+        self.btn_guardar.configure(text="Actualizar IP")
+
+    def _eliminar(self):
+        if not self.ip_seleccionada_id:
+            messagebox.showwarning("Aviso", "Seleccione un registro para eliminar.")
+            return
+            
+        if messagebox.askyesno("Confirmar", "¿Eliminar este registro de IP?"):
+            exito, msj = self.db.eliminar_ip(self.ip_seleccionada_id)
+            if exito:
+                self._limpiar()
+                self.cargar_datos()
+                messagebox.showinfo("Éxito", msj)
+            else:
+                messagebox.showerror("Error", msj)
+
+    def _limpiar(self):
+        self.ip_seleccionada_id = None
+        self.var_ip.set("")
+        self.var_dispositivo.set("")
+        self.var_desc.set("")
+        self.var_estado.set("Ocupada")
+        self.btn_guardar.configure(text="Registrar IP")
